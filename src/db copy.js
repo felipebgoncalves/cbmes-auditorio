@@ -2,16 +2,12 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Conexão com o PostgreSQL (Neon)
 const pool = new Pool({
   host: process.env.PGHOST,
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: process.env.PGDATABASE,
-  port: process.env.PGPORT,
-  ssl: {
-    rejectUnauthorized: false, // necessário para o Neon (SSL obrigatório)
-  },
+  port: process.env.PGPORT
 });
 
 module.exports = pool;

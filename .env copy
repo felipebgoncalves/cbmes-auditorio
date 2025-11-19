@@ -1,12 +1,12 @@
 PORT=3000
 
-PGHOST=ep-muddy-snow-a4st9cpa-pooler.us-east-1.aws.neon.tech
-PGUSER=neondb_owner
-PGPASSWORD=npg_X6SUPEwZF3kz@
-PGDATABASE=neondb
+PGHOST=localhost
+PGUSER=postgres
+PGPASSWORD=mimargui!1Q
+PGDATABASE=Auditorio
 PGPORT=5432
 
-
+APP_PUBLIC_URL=http://localhost:3000
 
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
