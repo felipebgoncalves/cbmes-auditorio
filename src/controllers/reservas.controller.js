@@ -179,9 +179,9 @@ exports.obterPeriodosLivres = async (req, res) => {
 
     const todosPeriodos = [
       { id: 'INTEGRAL', label: 'Integral (08h às 18h)' },
-      { id: 'MANHA',    label: 'Manhã (08h às 12h)' },
-      { id: 'TARDE',    label: 'Tarde (13h às 17h)' },
-      { id: 'NOITE',    label: 'Noite (18h às 21h)' }
+      { id: 'MANHA', label: 'Manhã (08h às 12h)' },
+      { id: 'TARDE', label: 'Tarde (13h às 17h)' },
+      { id: 'NOITE', label: 'Noite (18h às 21h)' }
     ];
 
     const livres = todosPeriodos.filter(p => !ocupados.has(p.id));
@@ -373,24 +373,35 @@ exports.atualizarStatus = async (req, res) => {
 
         await db.query(
           `INSERT INTO auditorio_reserva
-           (data_evento, data_fim, periodo, tipo_solicitacao,
-            instituicao, responsavel, email, telefone,
-            finalidade, observacoes, anexo_url, status)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'APROVADA')`,
+          (
+              data_evento,
+              periodo,
+              instituicao,
+              responsavel,
+              email,
+              telefone,
+              finalidade,
+              observacoes,
+              tipo_solicitacao,
+              data_fim,
+              anexo_url
+          )
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
           [
-            reservaAtualizada.data_evento,      // $1
-            reservaAtualizada.data_fim,         // $2
-            reservaAtualizada.periodo,          // $3
-            'INTERNA',                          // $4 tipo_solicitacao
-            'CBMES / Corporação',               // $5 instituicao
-            'Uso interno CBMES',                // $6 responsavel
-            emailUso,                           // $7 email (NÃO é null)
-            telefoneUso,                        // $8 telefone
-            'Em uso da Corporação',             // $9 finalidade
-            null,                               // $10 observacoes
-            null                                // $11 anexo_url
+            reservaAtualizada.data_evento,     // $1
+            reservaAtualizada.periodo,         // $2
+            'CBMES / Corporação',              // $3
+            'Uso interno CBMES',               // $4
+            emailUso,                          // $5
+            telefoneUso,                       // $6
+            'Em uso da Corporação',            // $7
+            null,                              // $8 observacoes
+            'INTERNA',                         // $9 tipo_solicitacao
+            reservaAtualizada.data_fim,        // $10 data_fim
+            null                               // $11 anexo_url
           ]
         );
+
       } catch (errInsercao) {
         console.error('Erro ao criar reserva interna de uso da Corporação:', errInsercao);
         // não impede a resposta principal; só registramos o problema
