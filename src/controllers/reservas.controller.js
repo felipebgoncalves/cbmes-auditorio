@@ -1,6 +1,6 @@
 // src/controllers/reservas.controller.js
 const db = require('../db');
-const mailer = require('../mailer');
+const { enviarEmailNovaReserva } = require('../mailer');
 const { v4: uuidv4 } = require('uuid'); // 🔹 NOVO: para gerar token do checklist
 
 // Helper só usado aqui
@@ -373,20 +373,21 @@ exports.atualizarStatus = async (req, res) => {
 
         await db.query(
           `INSERT INTO auditorio_reserva
-          (
-              data_evento,
-              periodo,
-              instituicao,
-              responsavel,
-              email,
-              telefone,
-              finalidade,
-              observacoes,
-              tipo_solicitacao,
-              data_fim,
-              anexo_url
-          )
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      (
+        data_evento,
+        periodo,
+        instituicao,
+        responsavel,
+        email,
+        telefone,
+        finalidade,
+        observacoes,
+        tipo_solicitacao,
+        data_fim,
+        anexo_url,
+        status
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'APROVADA')`,
           [
             reservaAtualizada.data_evento,     // $1
             reservaAtualizada.periodo,         // $2
@@ -397,7 +398,7 @@ exports.atualizarStatus = async (req, res) => {
             'Em uso da Corporação',            // $7
             null,                              // $8 observacoes
             'INTERNA',                         // $9 tipo_solicitacao
-            reservaAtualizada.data_fim,        // $10 data_fim
+            reservaAtualizada.data_fim,        // $10 data_fim (pode ser igual à inicial)
             null                               // $11 anexo_url
           ]
         );
@@ -407,6 +408,7 @@ exports.atualizarStatus = async (req, res) => {
         // não impede a resposta principal; só registramos o problema
       }
     }
+
 
     // 🔹 NOVO BLOCO: gerar token de checklist ao aprovar, se ainda não tiver
     if (statusUpper === 'APROVADA') {
