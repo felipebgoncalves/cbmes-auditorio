@@ -1,7 +1,8 @@
 // src/controllers/reservas.controller.js
 const db = require('../db');
-const { enviarEmailNovaReserva } = require('../mailer');
+const mailer = require('../mailer');
 const { v4: uuidv4 } = require('uuid'); // 🔹 NOVO: para gerar token do checklist
+
 
 // Helper só usado aqui
 function normalizarTipoSolicitacao(valor) {
