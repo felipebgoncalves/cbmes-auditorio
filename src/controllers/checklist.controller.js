@@ -217,37 +217,53 @@ exports.responderChecklist = async (req, res) => {
 
       novoJson = { ...base, checkout: payload };
 
-      // Tenta descobrir no payload se houve alterações
-      // (cobrindo vários nomes possíveis de campo)
-      let houveAlteracoes = false;
-
-      const brutoAlteracoes =
-        payload.checkout_com_alteracoes ??
-        payload.checkout_alteracoes ??
-        payload.houve_alteracoes ??
-        payload.alteracoes;
-
-      if (typeof brutoAlteracoes === 'string') {
-        const v = brutoAlteracoes.trim().toUpperCase();
-        if (['SIM', 'S', 'TRUE', '1'].includes(v)) {
-          houveAlteracoes = true;
-        }
-      } else if (typeof brutoAlteracoes === 'boolean') {
-        houveAlteracoes = brutoAlteracoes;
-      } else if (typeof brutoAlteracoes === 'number') {
-        houveAlteracoes = brutoAlteracoes === 1;
-      }
-
+      // 1º UPDATE: mantém o comportamento antigo (que já funcionava)
       await db.query(
         `
         UPDATE auditorio_reserva
            SET checklist_respostas              = $1,
-               checklist_checkout_preenchido_em = NOW(),
-               checkout_com_alteracoes          = $2
-         WHERE checklist_token = $3
+               checklist_checkout_preenchido_em = NOW()
+         WHERE checklist_token = $2
         `,
-        [novoJson, houveAlteracoes, token]
+        [novoJson, token]
       );
+
+      // 2º UPDATE: tenta atualizar a flag checkout_com_alteracoes, mas sem quebrar nada se falhar
+      try {
+        let houveAlteracoes = false;
+
+        const brutoAlteracoes =
+          payload.checkout_com_alteracoes ??
+          payload.checkout_alteracoes ??
+          payload.houve_alteracoes ??
+          payload.alteracoes;
+
+        if (typeof brutoAlteracoes === 'string') {
+          const v = brutoAlteracoes.trim().toUpperCase();
+          if (['SIM', 'S', 'TRUE', '1'].includes(v)) {
+            houveAlteracoes = true;
+          }
+        } else if (typeof brutoAlteracoes === 'boolean') {
+          houveAlteracoes = brutoAlteracoes;
+        } else if (typeof brutoAlteracoes === 'number') {
+          houveAlteracoes = brutoAlteracoes === 1;
+        }
+
+        await db.query(
+          `
+          UPDATE auditorio_reserva
+             SET checkout_com_alteracoes = $1
+           WHERE checklist_token = $2
+          `,
+          [houveAlteracoes, token]
+        );
+      } catch (errFlag) {
+        console.error(
+          'Não foi possível atualizar checkout_com_alteracoes (mas o checklist foi salvo):',
+          errFlag
+        );
+        // não dou throw: o checklist continua salvo normalmente
+      }
     }
 
     return res.status(201).json({ ok: true, tipoChecklist: tipo });
@@ -256,4 +272,3 @@ exports.responderChecklist = async (req, res) => {
     return res.status(500).json({ error: 'Erro ao salvar respostas do checklist.' });
   }
 };
-
