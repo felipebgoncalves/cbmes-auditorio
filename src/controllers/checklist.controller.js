@@ -75,6 +75,7 @@ exports.obterChecklistPorToken = async (req, res) => {
       }
 
     } else {
+
       // CHECKOUT
       if (jsonRespostas && jsonRespostas.checkout) {
         respostasDoTipo = jsonRespostas.checkout;
@@ -228,22 +229,25 @@ exports.responderChecklist = async (req, res) => {
       try {
         let houveAlteracoes = false;
 
-        // vem do radio final de confirmação
-        const confVal = String(payload.confirmacao_checkout || '')
-          .trim()
-          .toUpperCase();
-
-        // Se o valor tiver "COM" (COM_ALTERACOES, COM-ALTERACOES, etc) consideramos true
-        if (confVal.includes('COM')) {
-          houveAlteracoes = true;
+        // preferimos o campo booleano explícito, se vier
+        if (typeof payload.checkout_com_alteracoes === 'boolean') {
+          houveAlteracoes = payload.checkout_com_alteracoes;
+        } else {
+          // fallback: interpreta o texto da confirmação
+          const confVal = String(payload.confirmacao_checkout || '')
+            .trim()
+            .toUpperCase();
+          if (confVal.includes('COM')) {
+            houveAlteracoes = true;
+          }
         }
 
         await db.query(
           `
-          UPDATE auditorio_reserva
-             SET checkout_com_alteracoes = $1
-           WHERE checklist_token = $2
-          `,
+      UPDATE auditorio_reserva
+         SET checkout_com_alteracoes = $1
+       WHERE checklist_token = $2
+      `,
           [houveAlteracoes, token]
         );
       } catch (errFlag) {
