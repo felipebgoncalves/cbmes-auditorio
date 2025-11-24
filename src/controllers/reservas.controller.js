@@ -649,6 +649,12 @@ exports.listarChecklists = async (req, res) => {
         (checklist_respostas -> 'checkin') IS NOT NULL                         AS checkin_feito,
         (checklist_respostas -> 'checkout') IS NOT NULL                        AS checkout_feito,
         (checklist_respostas -> 'checkin' ->> 'concordo_uso') IS NOT NULL      AS concordou_uso,
+        
+        COALESCE(
+          checklist_respostas -> 'checkout' ->> 'confirmacao_checkout',
+          ''
+        ) AS checkout_confirmacao_raw,
+
         -- Usa expressão normalizada para derivar se teve alterações no CHECK-OUT
         (${exprCheckoutConf} LIKE '%COM%')                                     AS checkout_com_alteracoes,
         checklist_respostas
