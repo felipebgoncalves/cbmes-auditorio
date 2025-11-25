@@ -214,9 +214,7 @@ exports.responderChecklist = async (req, res) => {
 
       // 🔹 NOVO: grava na auditorio_checklist
       // checkbox "concordo_uso" → se existir no payload, considero que concordou
-      const concordouUso = Object.prototype.hasOwnProperty.call(payload, 'concordo_uso')
-        ? true
-        : false;
+      const concordouUso = !!payload.concordo_uso;
 
       await db.query(
         `
