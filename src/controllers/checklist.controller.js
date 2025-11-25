@@ -118,6 +118,7 @@ exports.obterChecklistPorToken = async (req, res) => {
 
 // POST /api/checklist/:token?tipo=CHECKIN|CHECKOUT
 exports.responderChecklist = async (req, res) => {
+  console.log('PAYLOAD CHECKLIST:', req.body);
   const { token } = req.params;
   const tipo = normalizarTipo(req.query.tipo || req.body.tipo_checklist);
   const hoje = hojeISO();
