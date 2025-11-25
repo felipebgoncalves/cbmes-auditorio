@@ -571,7 +571,7 @@ exports.transformarUsoCorporacaoEmReserva = async (req, res) => {
 
 
 
-// ================== LISTA DE CHECKLISTS (ABA CHECKLISTS) ===============
+// ================== LISTA DE CHECKLISTS (CHECK-IN / CHECK-OUT) ===============
 exports.listarChecklists = async (req, res) => {
   try {
     const {
@@ -616,11 +616,23 @@ exports.listarChecklists = async (req, res) => {
       where.push(`(checklist_respostas -> 'checkin' ->> 'concordo_uso') IS NULL`);
     }
 
-    // Filtro: Check-OUT com alterações? (usa APENAS a coluna booleana do banco)
+    // Expressão SQL para o campo de confirmação do CHECK-OUT
+    const exprCheckoutConf = `
+      UPPER(
+        COALESCE(
+          checklist_respostas -> 'checkout' ->> 'confirmacao_checkout',
+          ''
+        )
+      )
+    `;
+
+    // Filtro: Check-OUT com alterações? (derivado do JSON)
     if (checkout_alteracoes === 'SIM') {
-      where.push(`checkout_com_alteracoes = TRUE`);
+      // qualquer valor que contenha "COM" (ex.: COM_ALTERACOES)
+      where.push(`${exprCheckoutConf} LIKE '%COM%'`);
     } else if (checkout_alteracoes === 'NAO') {
-      where.push(`checkout_com_alteracoes = FALSE`);
+      // qualquer valor que contenha "SEM" (ex.: SEM_ALTERACOES)
+      where.push(`${exprCheckoutConf} LIKE '%SEM%'`);
     }
 
     const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -640,7 +652,13 @@ exports.listarChecklists = async (req, res) => {
         (checklist_respostas -> 'checkin')  IS NOT NULL                   AS checkin_feito,
         (checklist_respostas -> 'checkout') IS NOT NULL                   AS checkout_feito,
         (checklist_respostas -> 'checkin' ->> 'concordo_uso') IS NOT NULL AS concordou_uso,
-        checkout_com_alteracoes,
+
+        -- valor normalizado da confirmação do CHECK-OUT (COM_ALTERACOES / SEM_ALTERACOES / vazio)
+        (${exprCheckoutConf})                                             AS checkout_confirmacao_norm,
+
+        -- boolean: teve alterações? (true se contiver "COM")
+        (${exprCheckoutConf} LIKE '%COM%')                                AS checkout_com_alteracoes,
+
         checklist_respostas
       FROM auditorio_reserva
       ${whereClause}
@@ -657,6 +675,7 @@ exports.listarChecklists = async (req, res) => {
       .json({ error: 'Erro ao listar checklists (check-in / check-out).' });
   }
 };
+
 
 
 
