@@ -1,3 +1,4 @@
+// public/js/checklist.js
 const API_BASE = '/api';
 
 function getTokenFromUrl() {
@@ -16,11 +17,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const chkConcordo = document.getElementById('concordo_uso');
   const chkNaoConcordo = document.getElementById('nao_concordo_uso');
 
+  // Botão "Voltar"
   btnVoltarInicio.addEventListener('click', () => {
     window.location.href = '/index.html';
   });
 
-  // Checkbox mutuamente exclusivos (visual de checkbox, comportamento de radio)
+  // Checkboxes mutuamente exclusivos (visual de checkbox, comportamento de rádio)
   chkConcordo.addEventListener('change', () => {
     if (chkConcordo.checked) chkNaoConcordo.checked = false;
   });
@@ -29,6 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (chkNaoConcordo.checked) chkConcordo.checked = false;
   });
 
+  // Se não tiver token → erro
   if (!token) {
     mensagemEl.textContent = 'Link inválido. O token de acesso não foi informado.';
     mensagemEl.className = 'mensagem erro';
@@ -37,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // Carregar informações da reserva para CHECKIN
+  // ================= CARREGA DADOS DA RESERVA (CHECK-IN) =================
   try {
     const resp = await fetch(`${API_BASE}/checklist/${token}?tipo=CHECKIN`);
     const json = await resp.json();
@@ -58,7 +61,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       `Data do evento: ${dataFormatada}`;
 
     if (!podeResponder) {
-      mensagemEl.textContent = motivoBloqueio || 'Este formulário não está disponível para preenchimento.';
+      mensagemEl.textContent =
+        motivoBloqueio || 'Este formulário não está disponível para preenchimento.';
       mensagemEl.className = 'mensagem erro';
       mensagemEl.style.display = 'block';
       form.style.display = 'none';
@@ -75,7 +79,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Tudo certo → exibe o formulário
     form.style.display = 'grid';
-
   } catch (err) {
     console.error(err);
     mensagemEl.textContent = 'Erro de comunicação com o servidor.';
@@ -85,7 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // Envio do formulário (CHECKIN)
+  // ================= ENVIO DO FORMULÁRIO (CHECK-IN) =================
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     mensagemEl.style.display = 'none';
@@ -100,16 +103,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (!chkConcordo.checked) {
-      alert('Para confirmar o Check-IN é necessário marcar "Concordo com as condições de uso do auditório".');
+      alert(
+        'Para confirmar o Check-IN é necessário marcar "Concordo com as condições de uso do auditório".'
+      );
       return;
     }
 
     if (chkNaoConcordo.checked) {
-      alert('Não é possível confirmar o Check-IN marcando "Não concordo com as condições de uso do auditório".');
+      alert(
+        'Não é possível confirmar o Check-IN marcando "Não concordo com as condições de uso do auditório".'
+      );
       return;
     }
 
-    // Montar payload com todas as respostas
+    // Monta o payload com TODAS as respostas do formulário
     const formData = new FormData(form);
     const payload = { tipo_checklist: 'CHECKIN' };
 
@@ -117,11 +124,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       payload[key] = value;
     }
 
+    // (Importante: aqui vai o campo concordo_uso = "on" quando marcado)
+
     try {
       const resp = await fetch(`${API_BASE}/checklist/${token}?tipo=CHECKIN`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       const json = await resp.json();
@@ -137,7 +146,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       mensagemEl.className = 'mensagem ok';
       mensagemEl.style.display = 'block';
       form.style.display = 'none';
-
     } catch (err) {
       console.error(err);
       mensagemEl.textContent = 'Erro de comunicação com o servidor.';
