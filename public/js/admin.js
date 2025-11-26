@@ -619,14 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${checkinStatus}</td>
           <td>${item.concordou_uso ? 'Sim' : 'Não'}</td>
           <td>${checkoutStatus}</td>
-          <td>${(item.checklist_respostas?.checkout?.confirmacao_checkout || '')
-            .toString()
-            .toUpperCase()
-            .includes('COM')
-            ? 'Sim'
-            : 'Não'
-          }</td>
-
+          <td>${item.checkout_com_alteracoes ? 'Sim' : 'Não'}</td>
         `;
 
         tbody.appendChild(tr);
