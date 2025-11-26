@@ -24,13 +24,10 @@ exports.obterChecklistPorToken = async (req, res) => {
         id,
         data_evento::date       AS data_evento,
         COALESCE(data_fim, data_evento)::date AS data_fim,
-        instituicao,
-        responsavel,
-        email,
-        status,
+        checklist_token,
+        checklist_respostas,
         checklist_preenchido_em,
-        checklist_checkout_preenchido_em,
-        checklist_respostas
+        checklist_checkout_preenchido_em
       FROM auditorio_reserva
       WHERE checklist_token = $1
       `,
@@ -38,16 +35,15 @@ exports.obterChecklistPorToken = async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Link inválido ou não encontrado.' });
+      return res.status(404).json({ error: 'Token de checklist inválido ou não encontrado.' });
     }
 
     const reserva = rows[0];
-
     const hoje = hojeISO();
     const dataEvento = reserva.data_evento.toISOString().slice(0, 10);
     const dataFim = reserva.data_fim.toISOString().slice(0, 10);
 
-    let podeResponder = false;
+    let podeResponder = true;
     let motivoBloqueio = null;
     let jaPreenchido = false;
     let respostasDoTipo = null;
@@ -70,13 +66,9 @@ exports.obterChecklistPorToken = async (req, res) => {
         motivoBloqueio = 'Este formulário de Check-IN só poderá ser preenchido no dia do evento.';
       } else if (hoje > dataEvento) {
         motivoBloqueio = 'O prazo para preenchimento do Check-IN já encerrou.';
-      } else {
-        podeResponder = true;
       }
-
     } else {
-
-      // CHECKOUT
+      // tipo === 'CHECKOUT'
       if (jsonRespostas && jsonRespostas.checkout) {
         respostasDoTipo = jsonRespostas.checkout;
       }
@@ -85,54 +77,52 @@ exports.obterChecklistPorToken = async (req, res) => {
         jaPreenchido = true;
         motivoBloqueio = 'Este formulário de Check-OUT já foi preenchido.';
       } else if (hoje < dataFim) {
-        motivoBloqueio = 'O Check-OUT só poderá ser realizado no último dia do evento.';
-      } else if (hoje > dataFim) {
-        motivoBloqueio = 'O prazo para preenchimento do Check-OUT já encerrou.';
-      } else {
-        podeResponder = true;
+        motivoBloqueio =
+          'O Check-OUT só poderá ser preenchido no último dia do evento (data de término).';
       }
+    }
+
+    if (motivoBloqueio) {
+      podeResponder = false;
     }
 
     return res.json({
       reserva: {
         id: reserva.id,
         data_evento: dataEvento,
-        data_fim: dataFim,
-        instituicao: reserva.instituicao,
-        responsavel: reserva.responsavel,
-        email: reserva.email,
-        status: reserva.status
+        data_fim: dataFim
       },
       tipoChecklist: tipo,
       podeResponder,
       motivoBloqueio,
       jaPreenchido,
-      respostas: respostasDoTipo
+      respostas: respostasDoTipo || null
     });
-
   } catch (err) {
-    console.error('Erro ao carregar checklist:', err);
-    return res.status(500).json({ error: 'Erro ao carregar checklist.' });
+    console.error('Erro ao obter checklist por token:', err);
+    return res.status(500).json({ error: 'Erro ao obter dados do checklist.' });
   }
 };
 
 // POST /api/checklist/:token?tipo=CHECKIN|CHECKOUT
 exports.responderChecklist = async (req, res) => {
-  console.log('PAYLOAD CHECKLIST:', req.body);
   const { token } = req.params;
   const tipo = normalizarTipo(req.query.tipo || req.body.tipo_checklist);
-  const hoje = hojeISO();
+  const payload = req.body || {};
+
+  console.log('PAYLOAD CHECKLIST:', payload);
 
   try {
+    // 1) Localiza reserva pelo token
     const { rows } = await db.query(
       `
       SELECT
         id,
         data_evento::date       AS data_evento,
         COALESCE(data_fim, data_evento)::date AS data_fim,
+        checklist_respostas,
         checklist_preenchido_em,
-        checklist_checkout_preenchido_em,
-        checklist_respostas
+        checklist_checkout_preenchido_em
       FROM auditorio_reserva
       WHERE checklist_token = $1
       `,
@@ -140,57 +130,15 @@ exports.responderChecklist = async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Link inválido ou não encontrado.' });
+      return res.status(404).json({ error: 'Token de checklist inválido ou não encontrado.' });
     }
 
     const reserva = rows[0];
-
+    const hoje = hojeISO();
     const dataEvento = reserva.data_evento.toISOString().slice(0, 10);
     const dataFim = reserva.data_fim.toISOString().slice(0, 10);
 
-    let dataReferencia = dataEvento;
-    let jaPreenchido = false;
-
-    if (tipo === 'CHECKIN') {
-      dataReferencia = dataEvento;
-      jaPreenchido = !!reserva.checklist_preenchido_em;
-    } else {
-      dataReferencia = dataFim;
-      jaPreenchido = !!reserva.checklist_checkout_preenchido_em;
-    }
-
-    if (jaPreenchido) {
-      return res.status(400).json({
-        error:
-          tipo === 'CHECKIN'
-            ? 'Este formulário de Check-IN já foi preenchido.'
-            : 'Este formulário de Check-OUT já foi preenchido.'
-      });
-    }
-
-    if (hoje < dataReferencia) {
-      return res.status(400).json({
-        error:
-          tipo === 'CHECKIN'
-            ? 'Este formulário de Check-IN só pode ser preenchido no dia do evento.'
-            : 'O Check-OUT só pode ser realizado no último dia do evento.'
-      });
-    }
-
-    if (hoje > dataReferencia) {
-      return res.status(400).json({
-        error:
-          tipo === 'CHECKIN'
-            ? 'O prazo para preenchimento do Check-IN já encerrou.'
-            : 'O prazo para preenchimento do Check-OUT já encerrou.'
-      });
-    }
-
-    const payload = req.body || {};
-    let base = reserva.checklist_respostas;
-    if (!base || typeof base !== 'object') {
-      base = {};
-    }
+    const base = reserva.checklist_respostas || {};
 
     // ===================== CHECK-IN =====================
     if (tipo === 'CHECKIN') {
@@ -213,8 +161,15 @@ exports.responderChecklist = async (req, res) => {
       );
 
       // 🔹 NOVO: grava na auditorio_checklist
-      // checkbox "concordo_uso" → se existir no payload, considero que concordou
-      const concordouUso = !!payload.concordo_uso;
+      // checkbox "concordo_uso" / campo booleano "concordou_uso"
+      // - Se vier boolean (concordou_uso) usamos direto
+      // - Se vier do formulário como string "on" (concordo_uso), convertemos para true
+      let concordouUso = false;
+      if (typeof payload.concordou_uso === 'boolean') {
+        concordouUso = payload.concordou_uso;
+      } else if (typeof payload.concordo_uso !== 'undefined') {
+        concordouUso = !!payload.concordo_uso;
+      }
 
       await db.query(
         `
@@ -291,11 +246,13 @@ exports.responderChecklist = async (req, res) => {
       [reserva.id, houveAlteracoes, payload.confirmacao_checkout || null, payload]
     );
 
-    return res.status(201).json({ ok: true, tipoChecklist: tipo });
+    return res.status(201).json({
+      ok: true,
+      tipoChecklist: tipo,
+      checkout_com_alteracoes: houveAlteracoes
+    });
   } catch (err) {
     console.error('Erro ao salvar checklist:', err);
     return res.status(500).json({ error: 'Erro ao salvar respostas do checklist.' });
   }
 };
-
-
