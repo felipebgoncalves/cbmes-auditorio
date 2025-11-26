@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     r.addEventListener('change', avaliarCondicoesCheckout);
   });
 
-  // Envio do Check-OUT
+    // Envio do Check-OUT
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     mensagemEl.style.display = 'none';
@@ -167,7 +167,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       payload[key] = value;
     }
 
-    payload.checkout_com_alteracoes = confirmacao === 'COM_ALTERACOES';
+    // 🔹 Campos que o backend espera (igual no CHECK-IN)
+    payload.email_preenchedor = email;
+    payload.nome_preenchedor = nome;
+
+    // 🔹 Flag booleana usada no backend
+    payload.checkout_com_alteracoes = (confirmacao === 'COM_ALTERACOES');
 
     try {
       const resp = await fetch(`${API_BASE}/checklist/${token}?tipo=CHECKOUT`, {
@@ -197,4 +202,5 @@ document.addEventListener('DOMContentLoaded', async () => {
       mensagemEl.style.display = 'block';
     }
   });
+
 });
