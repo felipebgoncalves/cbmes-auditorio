@@ -25,7 +25,7 @@
 <main class="calendar-wrapper">
   <div class="top-bar">
     <div>
-      <h2>Agenda do Auditório</h2>
+      <h2>Agenda de Ambientes</h2>
       <div class="legenda">
         <span><span class="badge badge-pendente"></span> Solicitação em análise</span>
         <span><span class="badge badge-aprovada"></span> Reserva confirmada</span>
@@ -33,6 +33,11 @@
       </div>
     </div>
     <div class="top-actions">
+      <select id="filtroAmbienteAgenda">
+        <option value="AUDITORIO">Auditório</option>
+        <option value="CENTRO_OPERACOES">Centro de Operações</option>
+        <option value="SALA_CRISE">Sala de Crise</option>
+      </select>
       <button id="btnAbrirModal" class="btn-primario">+ Nova solicitação</button>
     </div>
   </div>
@@ -44,7 +49,7 @@
 <div id="modalReserva" class="modal-backdrop">
   <div class="modal">
     <div class="modal-header">
-      <h3 class="modal-title">Nova Solicitação de Uso do Auditório do CAT/CBMES</h3>
+      <h3 class="modal-title">Nova Solicitação de Uso de Ambiente do CAT/CBMES</h3>
       <button id="btnFecharModal" class="modal-close">&times;</button>
     </div>
 
@@ -53,6 +58,15 @@
     </p>
 
     <form id="formReserva" class="form-grid">
+      <div class="form-group">
+        <label>Ambiente *</label>
+        <select name="ambiente" id="selectAmbienteReserva" required>
+          <option value="AUDITORIO">Auditório</option>
+          <option value="CENTRO_OPERACOES">Centro de Operações</option>
+          <option value="SALA_CRISE">Sala de Crise</option>
+        </select>
+      </div>
+
       <div class="form-group">
         <label>Tipo de solicitação *</label>
         <select name="tipo_solicitacao" required>
@@ -175,7 +189,7 @@
     <div class="termos-aceite">
       <label>
         <input type="checkbox" id="chkAceitoTermos">
-        Declaro que li e concordo com os termos de uso do auditório.
+        Declaro que li e concordo com os termos de uso do ambiente.
       </label>
     </div>
 

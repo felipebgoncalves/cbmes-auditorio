@@ -57,6 +57,16 @@
         </div>
 
         <div class="filter-group">
+          <label for="filtroAmbiente">Ambiente:</label>
+          <select id="filtroAmbiente">
+            <option value="">Todos</option>
+            <option value="AUDITORIO">Auditório</option>
+            <option value="CENTRO_OPERACOES">Centro de Operações</option>
+            <option value="SALA_CRISE">Sala de Crise</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
           <label for="filtroStatus">Status:</label>
           <select id="filtroStatus">
             <option value="">Todos</option>
@@ -78,6 +88,7 @@
             <tr>
               <th>ID</th>
               <th>Data / Período</th>
+              <th>Ambiente</th>
               <th>Instituição / Contato</th>
               <th>Finalidade / Observações</th>
               <th>Anexo</th>
@@ -171,6 +182,7 @@
               <th>Data final</th>
               <th>Tipo</th>
               <th>Período</th>
+              <th>Ambiente</th>
               <th>Instituição</th>
               <th>Responsável</th>
               <th>Check-IN</th>
@@ -181,7 +193,7 @@
           </thead>
           <tbody id="tabelaChecklistsBody">
             <tr>
-              <td colspan="11" style="text-align:center;font-size:.85rem;color:#666;">
+              <td colspan="12" style="text-align:center;font-size:.85rem;color:#666;">
                 Use os filtros acima e clique em "Buscar" para listar os registros.
               </td>
             </tr>
