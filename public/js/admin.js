@@ -8,6 +8,12 @@ document.addEventListener('DOMContentLoaded', () => {
     NOITE: 'Noite (18h às 21h)'
   };
 
+  const ambientesPadrao = {
+    AUDITORIO: 'Auditório',
+    CENTRO_OPERACOES: 'Centro de Operações',
+    SALA_CRISE: 'Sala de Crise'
+  };
+
   let todasReservas = [];
   let usuarioLogado = null;
   let usuarioEmEdicaoId = null;
@@ -208,6 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnAlterar = document.getElementById('btnAlterarSenha');
   const filtroTipo = document.getElementById('filtroTipo');
   const filtroStatus = document.getElementById('filtroStatus');
+  const filtroAmbiente = document.getElementById('filtroAmbiente');
 
   // Aba CHECKLISTS – filtros
   const filtroIdReserva = document.getElementById('filtroIdReserva');
@@ -259,12 +266,13 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = '';
 
     if (!Array.isArray(todasReservas) || todasReservas.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7">Nenhuma solicitação registrada.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8">Nenhuma solicitação registrada.</td></tr>';
       return;
     }
 
     const filtroTipoVal = filtroTipo ? filtroTipo.value : '';
     const filtroStatusVal = filtroStatus ? filtroStatus.value : '';
+    const filtroAmbienteVal = filtroAmbiente ? filtroAmbiente.value : '';
 
     const reservasFiltradas = todasReservas.filter(r => {
       const tipo = (r.tipo_solicitacao || '').toUpperCase();
@@ -272,12 +280,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (filtroTipoVal && tipo !== filtroTipoVal) return false;
       if (filtroStatusVal && st !== filtroStatusVal) return false;
+      if (filtroAmbienteVal && (r.ambiente || 'AUDITORIO') !== filtroAmbienteVal) return false;
 
       return true;
     });
 
     if (reservasFiltradas.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7">Nenhuma solicitação com os filtros selecionados.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8">Nenhuma solicitação com os filtros selecionados.</td></tr>';
       return;
     }
 
@@ -412,7 +421,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       tr.appendChild(tdId);
+      const tdAmbiente = document.createElement('td');
+      tdAmbiente.textContent = ambientesPadrao[r.ambiente] || r.ambiente || 'Auditório';
+
       tr.appendChild(tdData);
+      tr.appendChild(tdAmbiente);
       tr.appendChild(tdInst);
       tr.appendChild(tdFinalidade);
       tr.appendChild(tdAnexo);
@@ -425,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function carregarReservas() {
     const tbody = document.querySelector('#tabelaReservas tbody');
-    tbody.innerHTML = '<tr><td colspan="7">Carregando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8">Carregando...</td></tr>';
 
     try {
       const resp = await fetch(`${API_BASE}/reservas`);
@@ -444,7 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTabela();
     } catch (err) {
       console.error(err);
-      tbody.innerHTML = '<tr><td colspan="7">Erro ao carregar dados.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8">Erro ao carregar dados.</td></tr>';
     }
   }
 
@@ -549,7 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="11" style="text-align:center;font-size:.85rem;color:#666;">
+        <td colspan="12" style="text-align:center;font-size:.85rem;color:#666;">
           Carregando...
         </td>
       </tr>
@@ -569,7 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!resp.ok) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="11" style="text-align:center;font-size:.85rem;color:#a00;">
+            <td colspan="12" style="text-align:center;font-size:.85rem;color:#a00;">
               ${dados.error || 'Erro ao carregar dados.'}
             </td>
           </tr>
@@ -580,7 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!Array.isArray(dados) || dados.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="11" style="text-align:center;font-size:.85rem;color:#666;">
+            <td colspan="12" style="text-align:center;font-size:.85rem;color:#666;">
               Nenhum registro encontrado para os filtros informados.
             </td>
           </tr>
@@ -614,6 +627,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${dataFimStr}</td>
           <td>${item.tipo_solicitacao || ''}</td>
           <td>${item.periodo || ''}</td>
+          <td>${ambientesPadrao[item.ambiente] || item.ambiente || 'Auditório'}</td>
           <td>${item.instituicao || ''}</td>
           <td>${item.responsavel || ''}</td>
           <td>${checkinStatus}</td>
@@ -628,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error(err);
       tbody.innerHTML = `
         <tr>
-          <td colspan="11" style="text-align:center;font-size:.85rem;color:#a00;">
+          <td colspan="12" style="text-align:center;font-size:.85rem;color:#a00;">
             Erro de comunicação com o servidor.
           </td>
         </tr>
@@ -649,7 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="11" style="text-align:center;font-size:.85rem;color:#666;">
+        <td colspan="12" style="text-align:center;font-size:.85rem;color:#666;">
           Use os filtros acima e clique em "Buscar" para listar os registros.
         </td>
       </tr>
@@ -930,6 +944,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Filtros da aba Solicitações
   if (filtroTipo) filtroTipo.addEventListener('change', renderTabela);
   if (filtroStatus) filtroStatus.addEventListener('change', renderTabela);
+  if (filtroAmbiente) filtroAmbiente.addEventListener('change', renderTabela);
 
   if (btnAlterar) {
     btnAlterar.addEventListener('click', () => {
