@@ -2,9 +2,18 @@
 const db = require('../db');
 const mailer = require('../mailer');
 const { v4: uuidv4 } = require('uuid'); // 🔹 NOVO: para gerar token do checklist
+const { AMBIENTES, PERIODOS, AMBIENTE_PADRAO } = require('../constants/reservas.constants');
 
+const PERIODOS_LISTA = Object.entries(PERIODOS).map(([id, conf]) => ({ id, label: conf.label }));
 
 // Helper só usado aqui
+
+function normalizarAmbiente(valor) {
+  if (!valor) return AMBIENTE_PADRAO;
+  const t = valor.toString().trim().toUpperCase();
+  return AMBIENTES[t] ? t : null;
+}
+
 function normalizarTipoSolicitacao(valor) {
   if (!valor) return null;
   const t = valor.toString().trim().toUpperCase();
@@ -15,6 +24,12 @@ function normalizarTipoSolicitacao(valor) {
 // ================== CALENDÁRIO PÚBLICO ==================
 
 exports.listarPublicas = async (req, res) => {
+  const ambiente = normalizarAmbiente(req.query.ambiente);
+
+  if (!ambiente) {
+    return res.status(400).json({ error: 'Ambiente inválido.' });
+  }
+
   try {
     const { rows } = await db.query(
       `SELECT
@@ -22,6 +37,7 @@ exports.listarPublicas = async (req, res) => {
          data_evento,
          data_fim,
          periodo,
+         ambiente,
          tipo_solicitacao,
          instituicao,
          responsavel,
@@ -32,7 +48,9 @@ exports.listarPublicas = async (req, res) => {
          status
        FROM auditorio_reserva
        WHERE status IN ('PENDENTE', 'APROVADA')
-       ORDER BY data_evento ASC, periodo ASC`
+         AND ambiente = $1
+       ORDER BY data_evento ASC, periodo ASC`,
+      [ambiente]
     );
 
     res.json(rows);
@@ -63,6 +81,7 @@ exports.listarTodas = async (req, res) => {
               data_evento,
               data_fim,
               periodo,
+              ambiente,
               tipo_solicitacao,
               instituicao,
               responsavel,
@@ -95,11 +114,16 @@ exports.listarTodas = async (req, res) => {
 // ================== PERÍODOS LIVRES ======================
 exports.obterPeriodosLivres = async (req, res) => {
   const { data } = req.query;
+  const ambiente = normalizarAmbiente(req.query.ambiente);
 
   if (!data) {
     return res
       .status(400)
       .json({ error: 'Parâmetro "data" é obrigatório (YYYY-MM-DD).' });
+  }
+
+  if (!ambiente) {
+    return res.status(400).json({ error: 'Ambiente inválido.' });
   }
 
   // helper para "traduzir" o que está no banco para os IDs usados no sistema
@@ -135,8 +159,9 @@ exports.obterPeriodosLivres = async (req, res) => {
       `SELECT periodo, status
          FROM auditorio_reserva
         WHERE $1 BETWEEN data_evento AND COALESCE(data_fim, data_evento)
-          AND status IN ('PENDENTE', 'APROVADA')`,
-      [data]
+          AND status IN ('PENDENTE', 'APROVADA')
+          AND ambiente = $2`,
+      [data, ambiente]
     );
 
     // 1) Normaliza o que veio do banco
@@ -178,14 +203,7 @@ exports.obterPeriodosLivres = async (req, res) => {
       }
     });
 
-    const todosPeriodos = [
-      { id: 'INTEGRAL', label: 'Integral (08h às 18h)' },
-      { id: 'MANHA', label: 'Manhã (08h às 12h)' },
-      { id: 'TARDE', label: 'Tarde (13h às 17h)' },
-      { id: 'NOITE', label: 'Noite (18h às 21h)' }
-    ];
-
-    const livres = todosPeriodos.filter(p => !ocupados.has(p.id));
+    const livres = PERIODOS_LISTA.filter(p => !ocupados.has(p.id));
 
     return res.json(livres);
   } catch (err) {
@@ -206,6 +224,7 @@ exports.criarReserva = async (req, res) => {
       data_evento,
       data_fim,           // opcional
       periodo,
+      ambiente,
       tipo_solicitacao,
       instituicao,
       responsavel,
@@ -216,6 +235,7 @@ exports.criarReserva = async (req, res) => {
     } = req.body;
 
     const tipo = normalizarTipoSolicitacao(tipo_solicitacao);
+    const ambienteNormalizado = normalizarAmbiente(ambiente);
 
     // se o front ainda não manda data_fim, usamos a mesma da data_evento
     const dataFimFinal = (data_fim && data_fim.trim() !== '') ? data_fim : data_evento;
@@ -224,7 +244,7 @@ exports.criarReserva = async (req, res) => {
     const anexo_url = arquivo ? `/uploads/${arquivo.filename}` : null;
 
     if (!data_evento || !dataFimFinal || !periodo || !instituicao || !responsavel ||
-      !email || !telefone || !finalidade || !tipo) {
+      !email || !telefone || !finalidade || !tipo || !ambienteNormalizado) {
       return res.status(400).json({ error: 'Campos obrigatórios não informados.' });
     }
 
@@ -247,11 +267,12 @@ exports.criarReserva = async (req, res) => {
       SELECT 1
         FROM auditorio_reserva
        WHERE periodo = $1
+         AND ambiente = $2
          AND status IN ('PENDENTE','APROVADA')
-         AND NOT ($3 < data_evento OR $2 > COALESCE(data_fim, data_evento))
+         AND NOT ($4 < data_evento OR $3 > COALESCE(data_fim, data_evento))
        LIMIT 1;
     `;
-    const conflitoValues = [periodo, data_evento, dataFimFinal];
+    const conflitoValues = [periodo, ambienteNormalizado, data_evento, dataFimFinal];
     const conflito = await db.query(conflitoQuery, conflitoValues);
 
     if (conflito.rows.length > 0) {
@@ -262,10 +283,10 @@ exports.criarReserva = async (req, res) => {
 
     const insertQuery = `
       INSERT INTO auditorio_reserva
-      (data_evento, data_fim, periodo, tipo_solicitacao,
+      (data_evento, data_fim, periodo, ambiente, tipo_solicitacao,
        instituicao, responsavel, email, telefone,
        finalidade, observacoes, anexo_url, status)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'PENDENTE')
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'PENDENTE')
       RETURNING *;
     `;
 
@@ -273,6 +294,7 @@ exports.criarReserva = async (req, res) => {
       data_evento,
       dataFimFinal,
       periodo,
+      ambienteNormalizado,
       tipo,
       instituicao,
       responsavel,
@@ -377,6 +399,7 @@ exports.atualizarStatus = async (req, res) => {
       (
         data_evento,
         periodo,
+        ambiente,
         instituicao,
         responsavel,
         email,
@@ -388,19 +411,20 @@ exports.atualizarStatus = async (req, res) => {
         anexo_url,
         status
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'APROVADA')`,
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'APROVADA')`,
           [
-            reservaAtualizada.data_evento,     // $1
-            reservaAtualizada.periodo,         // $2
-            'CBMES / Corporação',              // $3
-            'Uso interno CBMES',               // $4
-            emailUso,                          // $5
-            telefoneUso,                       // $6
-            'Em uso da Corporação',            // $7
-            null,                              // $8 observacoes
-            'INTERNA',                         // $9 tipo_solicitacao
-            reservaAtualizada.data_fim,        // $10 data_fim (pode ser igual à inicial)
-            null                               // $11 anexo_url
+            reservaAtualizada.data_evento,                     // $1
+            reservaAtualizada.periodo,                         // $2
+            reservaAtualizada.ambiente || AMBIENTE_PADRAO,     // $3
+            'CBMES / Corporação',                              // $4
+            'Uso interno CBMES',                               // $5
+            emailUso,                                          // $6
+            telefoneUso,                                       // $7
+            'Em uso da Corporação',                            // $8
+            null,                                              // $9 observacoes
+            'INTERNA',                                         // $10 tipo_solicitacao
+            reservaAtualizada.data_fim,                        // $11 data_fim
+            null                                               // $12 anexo_url
           ]
         );
 
@@ -622,6 +646,7 @@ exports.listarChecklists = async (req, res) => {
         COALESCE(r.data_fim, r.data_evento) AS data_fim,
         r.tipo_solicitacao,
         r.periodo,
+        r.ambiente,
         r.instituicao,
         r.responsavel,
         r.email,

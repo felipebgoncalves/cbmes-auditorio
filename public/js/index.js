@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const inputDataInicio = document.getElementById('inputDataInicio');
   const inputDataFim = document.getElementById('inputDataFim');
   const selectPeriodo = document.getElementById('selectPeriodo');
+  const selectAmbienteReserva = document.getElementById('selectAmbienteReserva');
+  const filtroAmbienteAgenda = document.getElementById('filtroAmbienteAgenda');
 
   // Modal Termos
   const modalTermos = document.getElementById('modalTermos');
@@ -33,6 +35,13 @@ document.addEventListener('DOMContentLoaded', function () {
     NOITE: { label: 'Noite (18h às 21h)', inicio: '18:00', fim: '21:00' }
   };
 
+
+  const ambientesPadrao = {
+    AUDITORIO: 'Auditório',
+    CENTRO_OPERACOES: 'Centro de Operações',
+    SALA_CRISE: 'Sala de Crise'
+  };
+
   let calendar = null;
 
   // =========================
@@ -41,6 +50,9 @@ document.addEventListener('DOMContentLoaded', function () {
   function abrirModalReserva(dataISO) {
     modalBackdrop.style.display = 'flex';
     const dataEscolhida = dataISO || hojeISO;
+    if (selectAmbienteReserva && filtroAmbienteAgenda) {
+      selectAmbienteReserva.value = filtroAmbienteAgenda.value || 'AUDITORIO';
+    }
     inputDataInicio.value = dataEscolhida;
     inputDataFim.value = dataEscolhida;
     montarPeriodosLivresIntervalo();
@@ -95,7 +107,8 @@ document.addEventListener('DOMContentLoaded', function () {
       for (let d = new Date(ini); d <= fim; d.setDate(d.getDate() + 1)) {
         const iso = d.toISOString().slice(0, 10);
 
-        const resp = await fetch(`${API_BASE}/periodos-livres?data=${iso}`);
+        const ambiente = (selectAmbienteReserva?.value || filtroAmbienteAgenda?.value || 'AUDITORIO').toUpperCase();
+        const resp = await fetch(`${API_BASE}/periodos-livres?data=${iso}&ambiente=${encodeURIComponent(ambiente)}`);
         if (!resp.ok) {
           throw new Error('Erro ao consultar períodos livres');
         }
@@ -213,7 +226,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
   async function carregarReservasNoCalendario() {
     try {
-      const resp = await fetch(`${API_BASE}/reservas-public`);
+      const ambienteSelecionado = (filtroAmbienteAgenda?.value || 'AUDITORIO').toUpperCase();
+      const resp = await fetch(`${API_BASE}/reservas-public?ambiente=${encodeURIComponent(ambienteSelecionado)}`);
       const reservas = await resp.json();
 
       if (!Array.isArray(reservas)) {
@@ -261,19 +275,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
           // Label do período
           const periodoLabel = periodosPadrao[r.periodo]?.label || r.periodo || '';
+          const ambienteLabel = ambientesPadrao[r.ambiente] || r.ambiente || 'Auditório';
 
           // Título do evento
           let titulo;
 
           if (isUsoCorp) {
             // 🔵 Caso especial: uso interno da corporação
-            titulo = 'Em uso da Corporação' + (periodoLabel ? ` (${periodoLabel})` : '');
+            titulo = `${ambienteLabel} – Em uso da Corporação` + (periodoLabel ? ` (${periodoLabel})` : '');
             cor = '#0d6efd';      // azul
             textoCor = '#ffffff'; // texto branco
           } else {
             // Comportamento normal
             titulo =
-              `${statusUpper === 'APROVADA' ? 'Confirmado' : 'Solicitado'} – ${r.instituicao}` +
+              `${ambienteLabel} – ${statusUpper === 'APROVADA' ? 'Confirmado' : 'Solicitado'} – ${r.instituicao}` +
               (periodoLabel ? ` (${periodoLabel})` : '');
           }
 
@@ -298,6 +313,7 @@ document.addEventListener('DOMContentLoaded', function () {
             `Tipo: ${tipoLabel}`,
             r.instituicao ? `Instituição: ${r.instituicao}` : null,
             r.responsavel ? `Responsável: ${r.responsavel}` : null,
+            `Ambiente: ${ambienteLabel}`,
             periodoLabel ? `Período: ${periodoLabel}` : null,
             dataIniBR ? `Data inicial: ${dataIniBR}` : null,
             dataFimBR ? `Data final: ${dataFimBR}` : null
@@ -447,6 +463,18 @@ document.addEventListener('DOMContentLoaded', function () {
     btnAcessoInterno.addEventListener('click', () =>
       window.location.href = '/login.html'
     );
+  }
+
+  if (selectAmbienteReserva) {
+    selectAmbienteReserva.addEventListener('change', () => {
+      montarPeriodosLivresIntervalo();
+    });
+  }
+
+  if (filtroAmbienteAgenda) {
+    filtroAmbienteAgenda.addEventListener('change', () => {
+      carregarReservasNoCalendario();
+    });
   }
 
   inputDataInicio.addEventListener('change', e => {
