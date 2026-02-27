@@ -78,6 +78,7 @@ CREATE TABLE public.auditorio_reserva (
     id integer NOT NULL,
     data_evento date NOT NULL,
     periodo character varying(20) NOT NULL,
+    ambiente character varying(30) DEFAULT 'AUDITORIO'::character varying NOT NULL,
     instituicao character varying(150) NOT NULL,
     responsavel character varying(150) NOT NULL,
     email character varying(150) NOT NULL,
@@ -98,6 +99,7 @@ CREATE TABLE public.auditorio_reserva (
     checklist_respostas jsonb,
     checklist_checkout_preenchido_em timestamp with time zone,
     checkout_com_alteracoes boolean DEFAULT false,
+    CONSTRAINT chk_ambiente_reserva CHECK (((ambiente)::text = ANY ((ARRAY['AUDITORIO'::character varying, 'CENTRO_OPERACOES'::character varying, 'SALA_CRISE'::character varying])::text[]))),
     CONSTRAINT chk_data_intervalo CHECK (((data_fim IS NULL) OR (data_fim >= data_evento))),
     CONSTRAINT chk_status_reserva CHECK (((status)::text = ANY ((ARRAY['PENDENTE'::character varying, 'APROVADA'::character varying, 'NEGADA'::character varying, 'CANCELADA'::character varying])::text[]))),
     CONSTRAINT chk_tipo_solicitacao CHECK (((tipo_solicitacao)::text = ANY ((ARRAY['INTERNA'::character varying, 'EXTERNA'::character varying])::text[])))
@@ -233,7 +235,7 @@ CREATE UNIQUE INDEX ux_auditorio_reserva_checklist_token ON public.auditorio_res
 -- Name: ux_auditorio_reserva_data_periodo_ativa; Type: INDEX; Schema: public; Owner: postgres
 --
 
-CREATE UNIQUE INDEX ux_auditorio_reserva_data_periodo_ativa ON public.auditorio_reserva USING btree (data_evento, periodo) WHERE ((status)::text = ANY ((ARRAY['PENDENTE'::character varying, 'APROVADA'::character varying])::text[]));
+CREATE UNIQUE INDEX ux_auditorio_reserva_data_periodo_ativa ON public.auditorio_reserva USING btree (data_evento, periodo, ambiente) WHERE ((status)::text = ANY ((ARRAY['PENDENTE'::character varying, 'APROVADA'::character varying])::text[]));
 
 
 --

@@ -7,11 +7,13 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "3000:3000"
     volumes:
       - uploads_data:/usr/src/app/src/uploads
+    restart: unless-stopped
 
   db:
     image: postgres:15
@@ -22,9 +24,17 @@ services:
       POSTGRES_DB: auditorio_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./001_schema_recriar.sql:/docker-entrypoint-initdb.d/001_schema_recriar.sql:ro
+      - ./002_seed_usuarios.sql:/docker-entrypoint-initdb.d/002_seed_usuarios.sql:ro
     ports:
       # Porta exposta para acesso via rede (DBeaver, BI etc.)
       - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auditorio_user -d auditorio_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
 volumes:
   postgres_data:
